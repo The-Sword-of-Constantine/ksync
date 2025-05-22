@@ -61,7 +61,7 @@ pub struct DeviceProperty<'a> {
 }
 
 impl<'a> DeviceProperty<'a> {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             dev_type: FILE_DEVICE_UNKNOWN,
             dev_characteristics: FILE_DEVICE_SECURE_OPEN,
@@ -70,42 +70,51 @@ impl<'a> DeviceProperty<'a> {
         }
     }
 
+    #[inline(always)]
     pub fn get_type(&self) -> u32 {
         self.dev_type
     }
 
+    #[inline(always)]
     pub fn get_characteristics(&self) -> u32 {
         self.dev_type
     }
 
+    #[inline(always)]
     pub fn get_dev_name(&self) -> Option<&'a str> {
         self.dev_name
     }
 
+    #[inline(always)]
     pub fn get_dev_symbol_name(&self) -> Option<&'a str> {
         self.dev_symbol_name
     }
 
+    #[inline(always)]
     pub fn set_type(mut self, r#type: u32) -> Self {
         self.dev_type = r#type;
         self
     }
 
+    #[inline(always)]
     pub fn set_characteristics(mut self, characteristics: u32) -> Self {
         self.dev_characteristics = characteristics;
         self
     }
 
+    #[inline(always)]
     pub fn set_name(mut self, name: &'a str) -> Self {
         self.dev_name = Some(name);
         self
     }
 
+    #[inline(always)]
     pub fn set_symbol_name(mut self, symbol_name: &'a str) -> Self {
         self.dev_symbol_name = Some(symbol_name);
         self
     }
 
+    #[inline(always)]
     pub fn new_device(
         self,
         driver: &mut Driver,
