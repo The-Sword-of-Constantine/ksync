@@ -2,16 +2,21 @@ use core::{mem, ptr, time::Duration};
 
 use alloc::boxed::Box;
 use wdk_sys::{
+    _EX_TIMER, _KDPC, _KTIMER,
+    _POOL_TYPE::NonPagedPoolNx,
+    _TIMER_TYPE::{NotificationTimer, SynchronizationTimer},
+    EX_TIMER_HIGH_RESOLUTION, EX_TIMER_NOTIFICATION, EXT_DELETE_PARAMETERS, KTIMER, LARGE_INTEGER,
+    PEX_TIMER, PEXT_CALLBACK, PKTIMER, PVOID, STATUS_INSUFFICIENT_RESOURCES,
     ntddk::{
         ExAllocateTimer, ExCancelTimer, ExDeleteTimer, ExFreePoolWithTag, ExSetTimer,
         ExSetTimerResolution, KeCancelTimer, KeInitializeDpc, KeInitializeTimerEx,
         KeReadStateTimer, KeSetTimerEx,
-    }, EXT_DELETE_PARAMETERS, EX_TIMER_HIGH_RESOLUTION, EX_TIMER_NOTIFICATION, KTIMER, LARGE_INTEGER, PEXT_CALLBACK, PEX_TIMER, PKTIMER, PVOID, STATUS_INSUFFICIENT_RESOURCES, _EX_TIMER, _KDPC, _KTIMER, _POOL_TYPE::NonPagedPoolNx, _TIMER_TYPE::{NotificationTimer, SynchronizationTimer}
+    },
 };
 
 use crate::{
-    dpc::Dpc, kobject::Dispatchable, utils::ex_allocate_pool_zero, ntstatus::NtError,
-    raw::AsRawObject,
+    dpc::Dpc, kobject::Dispatchable, ntstatus::NtError, raw::AsRawObject,
+    utils::ex_allocate_pool_zero,
 };
 
 const TIMER_TAG: u32 = u32::from_ne_bytes(*b"rimt");
@@ -308,7 +313,7 @@ pub fn resotre_timer_resolution() {
 ///
 /// # Example
 /// These examples is also suitable for `ThreadHRTimer`
-/// 
+///
 /// - A Synchronization Timer
 /// ```
 /// let timer = Arc::new(ThreadTimer::new(true));
@@ -324,7 +329,7 @@ pub fn resotre_timer_resolution() {
 /// ```
 /// let timer = Arc::new(ThreadTimer::new(false));
 /// let broadcaster = tiemr.clone();
-/// 
+///
 /// for _ in 0..4 {
 ///     let _ = thread::spawn(|| loop {
 ///         broadcaster.wait();
@@ -372,12 +377,14 @@ unsafe impl Sync for ThreadTimer {}
 
 impl Drop for ThreadTimer {
     fn drop(&mut self) {
-        unsafe { ExFreePoolWithTag(self.0.cast(), TIMER_TAG); }
+        unsafe {
+            ExFreePoolWithTag(self.0.cast(), TIMER_TAG);
+        }
     }
 }
 
 /// A "Threaded High Resolution Timer" can be used in thread that running on IRQL <= DISPATCH_LEVEL
-/// 
+///
 /// # Example
 /// See examples of `ThreadTimer`*
 pub struct ThreadHRTimer(PEX_TIMER);
@@ -385,22 +392,22 @@ pub struct ThreadHRTimer(PEX_TIMER);
 impl ThreadHRTimer {
     /// # Parameters
     /// - is_sync: specified whether this timer is a synchronization timer or a notification timer
-    /// 
+    ///
     /// # Note
-    /// A timer can be a notification timer or a synchronization timer. 
-    /// When a notification timer is signaled, all waiting threads have their wait satisfied. 
-    /// The state of this timer remains signaled until it is explicitly reset. When a synchronization timer expires, 
+    /// A timer can be a notification timer or a synchronization timer.
+    /// When a notification timer is signaled, all waiting threads have their wait satisfied.
+    /// The state of this timer remains signaled until it is explicitly reset. When a synchronization timer expires,
     /// its state is set to signaled until a single waiting thread is released. Then, the timer is reset to the not-signaled state.
-    /// 
+    ///
     /// # Refer
     /// see https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-exallocatetimer for details
     pub fn new(is_sync: bool) -> Result<Self, NtError> {
         let mut attr: u32 = EX_TIMER_HIGH_RESOLUTION;
 
         if !is_sync {
-            attr |= EX_TIMER_NOTIFICATION; 
+            attr |= EX_TIMER_NOTIFICATION;
         }
-        
+
         let timer = unsafe { ExAllocateTimer(None, ptr::null_mut(), attr) };
 
         if timer.is_null() {
@@ -420,10 +427,12 @@ impl AsRawObject for ThreadHRTimer {
 
 impl Dispatchable for ThreadHRTimer {}
 
-unsafe impl Sync for ThreadHRTimer{}
+unsafe impl Sync for ThreadHRTimer {}
 
 impl Drop for ThreadHRTimer {
     fn drop(&mut self) {
-        unsafe { ExFreePoolWithTag(self.0.cast(), TIMER_TAG); }
+        unsafe {
+            ExFreePoolWithTag(self.0.cast(), TIMER_TAG);
+        }
     }
 }
