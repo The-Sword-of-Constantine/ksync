@@ -489,7 +489,7 @@ impl OwnedDevice {
     //     unsafe { &*(self.object.as_ref().DeviceExtension as *const DispatchContext) }
     // }
 
-    fn get_ext_mut(&mut self) -> &mut DispatchContext {
+    fn get_ext_mut(&'_ mut self) -> &'_ mut DispatchContext<'_> {
         unsafe { &mut *(self.object.as_ref().DeviceExtension as *mut DispatchContext) }
     }
 
