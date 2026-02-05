@@ -1,6 +1,5 @@
 use core::{
-    ops::Deref,
-    ptr::{self},
+    ptr::{self, NonNull},
     time::Duration,
 };
 
@@ -104,28 +103,25 @@ pub trait Dereference: AsRawObject {
 
 /// A owned kernel object wrapper
 #[repr(transparent)]
-pub struct KernelObject<T>(*mut T);
+pub struct KernelObject<T>(NonNull<T>);
+// pub struct KernelObject<T>(*mut T);
 
 impl<T> KernelObject<T> {
     /// inner value should not be null
-    pub fn new(value: *mut T) -> Option<Self> {
-        if value.is_null() {
-            None
-        } else {
-            Some(Self(value))
-        }
+    pub fn new(value: *mut T) -> Self {
+        Self(NonNull::new(value).unwrap())
     }
 
     pub fn as_ptr(&self) -> *mut T {
-        self.0
+        self.0.as_ptr()
     }
 
     pub fn as_ref(&self) -> &T {
-        unsafe { &*self.0 }
+        unsafe { self.0.as_ref() }
     }
 
     pub fn as_mut(&mut self) -> &mut T {
-        unsafe { &mut *self.0 }
+        unsafe { self.0.as_mut() }
     }
 }
 
@@ -170,7 +166,7 @@ impl FromRawProcessHandle for KernelObject<_KPROCESS> {
             return Err(NtError::from(status));
         }
 
-        Ok(KernelObject::<_KPROCESS>(value.cast()))
+        Ok(KernelObject::new(value.cast()))
     }
 }
 
@@ -193,7 +189,7 @@ impl FromRawThreadHandle for KernelObject<_KTHREAD> {
             return Err(NtError::from(status));
         }
 
-        Ok(KernelObject::<_KTHREAD>(value.cast()))
+        Ok(KernelObject::new(value.cast()))
     }
 }
 
@@ -210,7 +206,7 @@ impl FromProcessId for KernelObject<_KPROCESS> {
             }
         }
 
-        Ok(KernelObject::<_KPROCESS>(value))
+        Ok(KernelObject::new(value))
     }
 }
 
@@ -227,7 +223,7 @@ impl FromThreadId for KernelObject<_KTHREAD> {
             }
         }
 
-        Ok(KernelObject::<_KTHREAD>(value))
+        Ok(KernelObject::new(value))
     }
 }
 
@@ -241,7 +237,7 @@ pub trait FromOwnedHandle {
 impl<T> AsRawObject for KernelObject<T> {
     type Target = T;
     fn as_raw(&self) -> *mut Self::Target {
-        self.0
+        self.0.as_ptr()
     }
 }
 
@@ -273,7 +269,7 @@ impl<T> FromOwnedHandle for KernelObject<T> {
 
         cvt(status)?;
 
-        Ok(KernelObject(object.cast()))
+        Ok(KernelObject::new(object.cast()))
     }
 }
 

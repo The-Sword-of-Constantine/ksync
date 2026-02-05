@@ -611,21 +611,21 @@ impl DeviceObject {
             IoGetDeviceObjectPointer(uname.as_mut(), FILE_READ_DATA, &mut file_obj, &mut raw_dev)
         })?;
 
-        Ok(Self(KernelObject::new(raw_dev).unwrap()))
+        Ok(Self(KernelObject::new(raw_dev)))
     }
 
     /// this will return the topmost device in the device stack
     pub fn from_attached(device: PDEVICE_OBJECT) -> Self {
         let device = unsafe { IoGetAttachedDeviceReference(device) };
 
-        Self(KernelObject::new(device).unwrap())
+        Self(KernelObject::new(device))
     }
 
     /// get device object from a file object
     pub fn from_file(file_object: PFILE_OBJECT) -> Self {
         let device = unsafe { IoGetRelatedDeviceObject(file_object) };
 
-        Self(KernelObject::new(device).unwrap())
+        Self(KernelObject::new(device))
     }
 }
 
