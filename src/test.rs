@@ -8,7 +8,7 @@ use wdk_sys::ntddk::{IoCreateDevice, IoDeleteDevice, KeGetCurrentProcessorNumber
 use wdk_sys::{FILE_DEVICE_SECURE_OPEN, FILE_DEVICE_UNKNOWN, PDEVICE_OBJECT, PDRIVER_OBJECT};
 
 use crate::lazy::{LazyCell, OnceCell};
-use crate::ntstatus::{NtError, cvt};
+use crate::ntstatus::{NtError, Result, cvt};
 use crate::workitem::WorkItem;
 use crate::{lock, thread, ulong_to_handle};
 
@@ -380,7 +380,7 @@ fn test_hr_timer() {
 struct Device(PDEVICE_OBJECT);
 
 impl Device {
-    fn new() -> Result<Self, NtError> {
+    fn new() -> Result<Self> {
         let mut device: PDEVICE_OBJECT = ptr::null_mut();
 
         let status = unsafe {

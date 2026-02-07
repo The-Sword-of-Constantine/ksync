@@ -18,7 +18,7 @@ use wdk_sys::{
 
 use crate::{
     handle::ObjectHandle,
-    ntstatus::{NtError, cvt},
+    ntstatus::{NtError, Result, cvt},
     raw::{AsRawHandle, AsRawObject},
 };
 
@@ -97,7 +97,9 @@ pub trait Dereference: AsRawObject {
     fn release(&mut self) {
         let ptr = <Self as AsRawObject>::as_raw(self);
 
-        unsafe { ObfDereferenceObject(ptr.cast()); }
+        unsafe {
+            ObfDereferenceObject(ptr.cast());
+        }
     }
 }
 
@@ -127,28 +129,24 @@ impl<T> KernelObject<T> {
 
 /// convert from a raw system process HANDLE and take ownership of its underlying object
 pub trait FromRawProcessHandle {
-    fn from_process_handle(handle: HANDLE, access: u32)
-    -> Result<KernelObject<_KPROCESS>, NtError>;
+    fn from_process_handle(handle: HANDLE, access: u32) -> Result<KernelObject<_KPROCESS>>;
 }
 
 /// convert from a raw system process HANDLE and take ownership of its underlying object
 pub trait FromRawThreadHandle {
-    fn from_thread_handle(id: HANDLE, access: u32) -> Result<KernelObject<_KTHREAD>, NtError>;
+    fn from_thread_handle(id: HANDLE, access: u32) -> Result<KernelObject<_KTHREAD>>;
 }
 
 pub trait FromProcessId {
-    fn from_process_id(id: HANDLE) -> Result<KernelObject<_KPROCESS>, NtError>;
+    fn from_process_id(id: HANDLE) -> Result<KernelObject<_KPROCESS>>;
 }
 
 pub trait FromThreadId {
-    fn from_thread_id(id: HANDLE) -> Result<KernelObject<_KTHREAD>, NtError>;
+    fn from_thread_id(id: HANDLE) -> Result<KernelObject<_KTHREAD>>;
 }
 
 impl FromRawProcessHandle for KernelObject<_KPROCESS> {
-    fn from_process_handle(
-        handle: HANDLE,
-        access: u32,
-    ) -> Result<KernelObject<_KPROCESS>, NtError> {
+    fn from_process_handle(handle: HANDLE, access: u32) -> Result<KernelObject<_KPROCESS>> {
         let mut value: PVOID = ptr::null_mut();
 
         let status = unsafe {
@@ -171,7 +169,7 @@ impl FromRawProcessHandle for KernelObject<_KPROCESS> {
 }
 
 impl FromRawThreadHandle for KernelObject<_KTHREAD> {
-    fn from_thread_handle(h: HANDLE, access: u32) -> Result<KernelObject<_KTHREAD>, NtError> {
+    fn from_thread_handle(h: HANDLE, access: u32) -> Result<KernelObject<_KTHREAD>> {
         let mut value: PVOID = ptr::null_mut();
 
         let status = unsafe {
@@ -195,7 +193,7 @@ impl FromRawThreadHandle for KernelObject<_KTHREAD> {
 
 // specialize for type ObjectRef<_KPROCESS>
 impl FromProcessId for KernelObject<_KPROCESS> {
-    fn from_process_id(id: HANDLE) -> Result<KernelObject<_KPROCESS>, NtError> {
+    fn from_process_id(id: HANDLE) -> Result<KernelObject<_KPROCESS>> {
         let mut value: PEPROCESS = ptr::null_mut();
 
         unsafe {
@@ -212,7 +210,7 @@ impl FromProcessId for KernelObject<_KPROCESS> {
 
 // specialize for type ObjectRef<_KTHREAD>
 impl FromThreadId for KernelObject<_KTHREAD> {
-    fn from_thread_id(id: HANDLE) -> Result<KernelObject<_KTHREAD>, NtError> {
+    fn from_thread_id(id: HANDLE) -> Result<KernelObject<_KTHREAD>> {
         let mut value: PETHREAD = ptr::null_mut();
 
         unsafe {
@@ -231,7 +229,7 @@ impl FromThreadId for KernelObject<_KTHREAD> {
 pub trait FromOwnedHandle {
     type Target;
 
-    fn from_handle(handle: &ObjectHandle) -> Result<KernelObject<Self::Target>, NtError>;
+    fn from_handle(handle: &ObjectHandle) -> Result<KernelObject<Self::Target>>;
 }
 
 impl<T> AsRawObject for KernelObject<T> {
@@ -253,7 +251,7 @@ impl<T> Dereference for KernelObject<T> {}
 impl<T> FromOwnedHandle for KernelObject<T> {
     type Target = T;
 
-    fn from_handle(handle: &ObjectHandle) -> Result<KernelObject<Self::Target>, NtError> {
+    fn from_handle(handle: &ObjectHandle) -> Result<KernelObject<Self::Target>> {
         let mut object: *mut core::ffi::c_void = ptr::null_mut();
 
         let status = unsafe {

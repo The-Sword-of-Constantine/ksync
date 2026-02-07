@@ -14,7 +14,10 @@ use wdk_sys::{
     },
 };
 
-use crate::{utils::ex_allocate_pool_zero, ntstatus::NtError};
+use crate::{
+    ntstatus::{NtError, Result},
+    utils::ex_allocate_pool_zero,
+};
 
 const DPC_TAG: u32 = u32::from_ne_bytes(*b"cpdk");
 
@@ -25,7 +28,7 @@ const DPC_TAG: u32 = u32::from_ne_bytes(*b"cpdk");
 pub struct Dpc(PKDPC);
 
 impl Dpc {
-    pub fn new<F: Fn()>(f: F) -> Result<Self, NtError> {
+    pub fn new<F: Fn()>(f: F) -> Result<Self> {
         let layout = ex_allocate_pool_zero(NonPagedPoolNx, mem::size_of::<_KDPC>() as _, DPC_TAG);
 
         if layout.is_null() {
@@ -77,7 +80,7 @@ impl Drop for Dpc {
 pub struct ThreadedDpc(PKDPC);
 
 impl ThreadedDpc {
-    pub fn new<F: Fn()>(f: F) -> Result<Self, NtError> {
+    pub fn new<F: Fn()>(f: F) -> Result<Self> {
         let layout = ex_allocate_pool_zero(NonPagedPoolNx, mem::size_of::<_KDPC>() as _, DPC_TAG);
 
         if layout.is_null() {
@@ -117,7 +120,7 @@ impl Drop for ThreadedDpc {
 }
 
 /// create a Ordinary DPC for "run only once" semantic
-fn create_ordinary_dpc<F: FnOnce()>(f: F) -> Result<PKDPC, NtError> {
+fn create_ordinary_dpc<F: FnOnce()>(f: F) -> Result<PKDPC> {
     let layout = ex_allocate_pool_zero(NonPagedPoolNx, mem::size_of::<_KDPC>() as _, DPC_TAG);
 
     if layout.is_null() {
@@ -138,7 +141,7 @@ fn create_ordinary_dpc<F: FnOnce()>(f: F) -> Result<PKDPC, NtError> {
 }
 
 /// create a Threaded DPC for "run only once" semantic
-fn create_threaded_dpc<F: FnOnce()>(f: F) -> Result<PKDPC, NtError> {
+fn create_threaded_dpc<F: FnOnce()>(f: F) -> Result<PKDPC> {
     let layout = ex_allocate_pool_zero(NonPagedPoolNx, mem::size_of::<_KDPC>() as _, DPC_TAG);
 
     if layout.is_null() {

@@ -19,7 +19,7 @@ use wdk_sys::{
 use crate::NtCurrentProcess;
 use crate::{
     initialize_object_attributes,
-    ntstatus::{NtError, cvt},
+    ntstatus::{NtError, Result, cvt},
 };
 
 #[repr(C)]
@@ -114,7 +114,7 @@ impl JoinHandle {
         status == STATUS_SUCCESS
     }
 
-    pub fn join(self) -> Result<NTSTATUS, NtError> {
+    pub fn join(self) -> Result<NTSTATUS> {
         let mut thread: PVOID = ptr::null_mut();
 
         let mut status = unsafe {
@@ -180,7 +180,7 @@ pub fn available_parallelism() -> NonZero<usize> {
     NonZero::new(num_cores as usize).unwrap()
 }
 
-pub fn spawn<F: FnOnce() + Send + 'static>(f: F) -> Result<JoinHandle, NtError> {
+pub fn spawn<F: FnOnce() + Send + 'static>(f: F) -> Result<JoinHandle> {
     let mut handle: HANDLE = ptr::null_mut();
 
     unsafe {

@@ -6,7 +6,7 @@ use core::{
 
 use crate::{
     kobject::KernelObject,
-    ntstatus::{NtError, cvt},
+    ntstatus::{NtError, Result, cvt},
     utils,
 };
 use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
@@ -119,7 +119,7 @@ impl<'a> DeviceProperty<'a> {
         self,
         driver: &mut Driver,
         dispatch_handler: Option<Box<dyn IrpDispatch>>,
-    ) -> Result<&mut OwnedDevice, NtError> {
+    ) -> Result<&mut OwnedDevice> {
         driver.create_device(self, dispatch_handler)
     }
 }
@@ -138,7 +138,7 @@ pub trait IrpDispatch {
     /// - an Err(e) indicates the IRP can not be compleete successfully, there is two cases</br>
     /// 1). if `e.code()` != STATUS_PENDING, the `Irp.IoStatus.Status` will be set to `e.code()` and the IRP will be completed immediately</br>
     /// 2). if `e.code()` == is STATUS_PENDINGthe, the `Irp.IoStatus.Status` will be set to `e.code()` and the IRP will be marked as pending, IRP is not completed </br>
-    fn dispatch(&self, device: PDEVICE_OBJECT, irp: PIRP) -> Result<u64, NtError>;
+    fn dispatch(&self, device: PDEVICE_OBJECT, irp: PIRP) -> Result<u64>;
 }
 
 /// just a helper structure for IRP dispatch handler and device stack manipulation
@@ -211,7 +211,7 @@ impl Driver {
         &mut self,
         property: DeviceProperty,
         dispatch_handler: Option<Box<dyn IrpDispatch>>,
-    ) -> Result<&mut OwnedDevice, NtError> {
+    ) -> Result<&mut OwnedDevice> {
         let dev = OwnedDevice::new(self, property, dispatch_handler)?;
 
         self.devices.push(dev);
@@ -227,7 +227,7 @@ impl Driver {
         name: &str,
         symbol_name: Option<&str>,
         dispatch_handler: Option<Box<dyn IrpDispatch>>,
-    ) -> Result<&mut OwnedDevice, NtError> {
+    ) -> Result<&mut OwnedDevice> {
         let dev = OwnedDevice::with_name(self, name, symbol_name, dispatch_handler)?;
 
         self.devices.push(dev);
@@ -254,7 +254,7 @@ impl DerefMut for Driver {
 pub struct EmptyDispatch(());
 
 impl IrpDispatch for EmptyDispatch {
-    fn dispatch(&self, device: PDEVICE_OBJECT, irp: PIRP) -> Result<u64, NtError> {
+    fn dispatch(&self, device: PDEVICE_OBJECT, irp: PIRP) -> Result<u64> {
         Err(NtError::new(STATUS_NOT_IMPLEMENTED))
     }
 }
@@ -279,7 +279,7 @@ impl OwnedDevice {
         driver: &Driver,
         property: DeviceProperty,
         dispatch_handler: Option<Box<dyn IrpDispatch>>,
-    ) -> Result<Self, NtError> {
+    ) -> Result<Self> {
         let mut device: PDEVICE_OBJECT = ptr::null_mut();
         let mut ext_size = 0u32;
         let mut dev_name: Option<Box<_UNICODE_STRING>> = None;
@@ -384,7 +384,7 @@ impl OwnedDevice {
         name: &str,
         symbol_name: Option<&str>,
         dispatch_handler: Option<Box<dyn IrpDispatch>>,
-    ) -> Result<Self, NtError> {
+    ) -> Result<Self> {
         let mut device: PDEVICE_OBJECT = ptr::null_mut();
 
         let mut ext_size = 0u32;
@@ -458,7 +458,7 @@ impl OwnedDevice {
     }
 
     /// attach to a existing device `target`
-    pub fn attach(&mut self, target: PDEVICE_OBJECT) -> Result<(), NtError> {
+    pub fn attach(&mut self, target: PDEVICE_OBJECT) -> Result<()> {
         let device = self.object.as_ptr();
         let dev_ext = self.get_ext_mut();
 
@@ -598,7 +598,7 @@ unsafe impl Sync for Driver {}
 pub struct DeviceObject(KernelObject<_DEVICE_OBJECT>);
 
 impl DeviceObject {
-    pub fn from_name(name: &str) -> Result<Self, NtError> {
+    pub fn from_name(name: &str) -> Result<Self> {
         let mut raw_dev: PDEVICE_OBJECT = ptr::null_mut();
         let mut file_obj: PFILE_OBJECT = ptr::null_mut();
 

@@ -7,7 +7,7 @@ use wdk_sys::{
     ntddk::{IoAllocateWorkItem, IoFreeWorkItem, IoQueueWorkItemEx},
 };
 
-use crate::ntstatus::NtError;
+use crate::ntstatus::{NtError, Result};
 
 /// Owned Active workitem wrapper
 pub struct WorkItem {
@@ -17,7 +17,7 @@ pub struct WorkItem {
 
 impl WorkItem {
     /// Create a workitem
-    pub fn new<F: Fn() + 'static>(f: F, device: PDEVICE_OBJECT) -> Result<Self, NtError> {
+    pub fn new<F: Fn() + 'static>(f: F, device: PDEVICE_OBJECT) -> Result<Self> {
         let workitem = unsafe { IoAllocateWorkItem(device) };
 
         if workitem.is_null() {
@@ -56,7 +56,7 @@ impl WorkItem {
     }
 
     /// post a worker into system thread directly, it manage memory automatically
-    pub fn post<F: FnOnce() + 'static>(f: F, device: PDEVICE_OBJECT) -> Result<(), NtError> {
+    pub fn post<F: FnOnce() + 'static>(f: F, device: PDEVICE_OBJECT) -> Result<()> {
         let callback = Box::new(f);
 
         let workitem = unsafe { IoAllocateWorkItem(device) };
@@ -107,10 +107,10 @@ extern "C" fn worker_routine_oneshot_stub<F: FnOnce()>(
 /// - construct the T on the heap which means allocate memory on heap and construct it in place
 /// - construct a "fat pointer" that consist of two normal pointers, one is pointed to `T` itself and the other is pointed to the `vtable` of `T`
 /// - after all this is done, store the "fat pointer" into Box itself, it now contains only the "fat pointer" and can be moved safely
-/// 
+///
 /// ## Destruction
 /// it happens whenn a `Box` goes out of its scope which means `drop` method of `Box` will be called, this has two steps
-/// - `Box` extract second part of the "fat pointer" called "vtable pointer" and find a `drop` method in it, then call it with 
+/// - `Box` extract second part of the "fat pointer" called "vtable pointer" and find a `drop` method in it, then call it with
 /// first part of the "fat pointer" called "object pointer", like this: `drop(self)`
 /// - finally `Box` will try to free the memory of object pointer occupied, leave the vtable pointer unchanged(it is allocated in .text section, free is not necessary)
 ///

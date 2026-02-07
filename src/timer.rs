@@ -15,7 +15,10 @@ use wdk_sys::{
 };
 
 use crate::{
-    dpc::Dpc, kobject::Dispatchable, ntstatus::NtError, raw::AsRawObject,
+    dpc::Dpc,
+    kobject::Dispatchable,
+    ntstatus::{NtError, Result},
+    raw::AsRawObject,
     utils::ex_allocate_pool_zero,
 };
 
@@ -29,7 +32,7 @@ const TIMER_TAG: u32 = u32::from_ne_bytes(*b"rimt");
 /// # Note
 /// depends on the implement context, the `f` will be dispatched on different IRQL
 pub trait DelayRun {
-    fn delay_run<F: Fn() + 'static>(f: F, after: Duration) -> Result<(), NtError>;
+    fn delay_run<F: Fn() + 'static>(f: F, after: Duration) -> Result<()>;
 }
 
 pub struct Timer {
@@ -43,7 +46,7 @@ impl Timer {
     /// # Parameters
     /// - f: routine will be called when timer expired
     /// - is_synch: specify the type of timer, NotificationTimer or SynchronizationTimer will be created
-    pub fn new<F: Fn() + 'static>(f: F, is_synch: bool) -> Result<Self, NtError> {
+    pub fn new<F: Fn() + 'static>(f: F, is_synch: bool) -> Result<Self> {
         let layout =
             ex_allocate_pool_zero(NonPagedPoolNx, mem::size_of::<KTIMER>() as _, TIMER_TAG);
 
@@ -130,7 +133,7 @@ extern "C" fn oneshot_dpc_routine<F: Fn()>(
 }
 
 impl DelayRun for Timer {
-    fn delay_run<F: Fn() + 'static>(f: F, after: Duration) -> Result<(), NtError> {
+    fn delay_run<F: Fn() + 'static>(f: F, after: Duration) -> Result<()> {
         let mut dpc = Box::new(_KDPC::default());
 
         // allocate DPC context
@@ -188,7 +191,7 @@ impl HRTimer {
     /// create a high resolution timer with or without a callback
     ///
     /// if a timer is created without callback, it will also satisfy the thread who waits on it to be signaled
-    pub fn new<F: Fn() + 'static>(f: Option<F>) -> Result<Self, NtError> {
+    pub fn new<F: Fn() + 'static>(f: Option<F>) -> Result<Self> {
         let mut callback_stub: PEXT_CALLBACK = None;
         let mut callback: *mut F = ptr::null_mut();
 
@@ -246,7 +249,7 @@ extern "C" fn hr_timer_routine_once_stub<F: FnOnce()>(timer: PEX_TIMER, context:
 }
 
 impl DelayRun for HRTimer {
-    fn delay_run<F: FnOnce() + 'static>(f: F, after: Duration) -> Result<(), NtError> {
+    fn delay_run<F: FnOnce() + 'static>(f: F, after: Duration) -> Result<()> {
         let callback = Box::into_raw(Box::new(f));
 
         let timer = unsafe {
@@ -341,7 +344,7 @@ pub fn resotre_timer_resolution() {
 pub struct ThreadTimer(PKTIMER);
 
 impl ThreadTimer {
-    pub fn new(is_synch: bool) -> Result<Self, NtError> {
+    pub fn new(is_synch: bool) -> Result<Self> {
         let layout =
             ex_allocate_pool_zero(NonPagedPoolNx, mem::size_of::<KTIMER>() as _, TIMER_TAG);
 
@@ -401,7 +404,7 @@ impl ThreadHRTimer {
     ///
     /// # Refer
     /// see https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-exallocatetimer for details
-    pub fn new(is_sync: bool) -> Result<Self, NtError> {
+    pub fn new(is_sync: bool) -> Result<Self> {
         let mut attr: u32 = EX_TIMER_HIGH_RESOLUTION;
 
         if !is_sync {

@@ -11,7 +11,10 @@ use wdk_sys::{
 };
 
 use crate::{
-    kobject::Dispatchable, ntstatus::NtError, raw::AsRawObject, utils::ex_allocate_pool_zero,
+    kobject::Dispatchable,
+    ntstatus::{NtError, Result},
+    raw::AsRawObject,
+    utils::ex_allocate_pool_zero,
 };
 
 /// A kernel mode synchronous Event
@@ -50,14 +53,14 @@ impl EventProperty {
         self
     }
 
-    pub fn new_event(self) -> Result<Event, NtError> {
+    pub fn new_event(self) -> Result<Event> {
         Event::new(self)
     }
 }
 
 impl Event {
     /// allocate a new event object on the kernel heap
-    pub fn new(prop: EventProperty) -> Result<Self, NtError> {
+    pub fn new(prop: EventProperty) -> Result<Self> {
         let layout =
             ex_allocate_pool_zero(NonPagedPoolNx, mem::size_of::<_KEVENT>() as _, EVENT_TAG);
 

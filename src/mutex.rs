@@ -1,4 +1,7 @@
-use crate::{ntstatus::{cvt, NtError}, utils::ex_allocate_pool_zero};
+use crate::{
+    ntstatus::{NtError, Result, cvt},
+    utils::ex_allocate_pool_zero,
+};
 use core::{
     cell::UnsafeCell,
     fmt::{Debug, Display},
@@ -40,7 +43,7 @@ const MUTEX_TAG: ULONG = u32::from_ne_bytes(*b"xetm");
 pub trait Mutex {
     type Target: Mutex;
 
-    fn init(&mut self) -> Result<(), NtError>;
+    fn init(&mut self) -> Result<()>;
 
     fn shareable() -> bool {
         false
@@ -74,7 +77,7 @@ pub trait Mutex {
 pub trait QueuedMutex {
     type Target: QueuedMutex;
 
-    fn init(&mut self) -> Result<(), NtError>;
+    fn init(&mut self) -> Result<()>;
 
     fn lock(&self, handle: PKLOCK_QUEUE_HANDLE);
 
@@ -102,7 +105,7 @@ pub struct SpinMutex(UnsafeCell<SpinLockInner>);
 impl Mutex for EmptyMutex {
     type Target = Self;
 
-    fn init(&mut self) -> Result<(), NtError> {
+    fn init(&mut self) -> Result<()> {
         Ok(())
     }
 
@@ -114,7 +117,7 @@ impl Mutex for EmptyMutex {
 impl Mutex for FastMutex {
     type Target = Self;
 
-    fn init(&mut self) -> Result<(), NtError> {
+    fn init(&mut self) -> Result<()> {
         ExInitializeFastMutex(self.0.get());
         Ok(())
     }
@@ -137,7 +140,7 @@ impl Mutex for FastMutex {
 impl Mutex for GuardedMutex {
     type Target = Self;
 
-    fn init(&mut self) -> Result<(), NtError> {
+    fn init(&mut self) -> Result<()> {
         unsafe { KeInitializeGuardedMutex(self.0.get()) };
         Ok(())
     }
@@ -160,7 +163,7 @@ impl Mutex for GuardedMutex {
 impl Mutex for ResourceMutex {
     type Target = Self;
 
-    fn init(&mut self) -> Result<(), NtError> {
+    fn init(&mut self) -> Result<()> {
         cvt(unsafe { ExInitializeResourceLite(self.0.get()) })
     }
 
@@ -215,7 +218,7 @@ struct SpinLockInner {
 impl Mutex for SpinMutex {
     type Target = Self;
 
-    fn init(&mut self) -> Result<(), NtError> {
+    fn init(&mut self) -> Result<()> {
         self.0.get_mut().irql = 0;
         unsafe { KeInitializeSpinLock(&mut self.0.get_mut().lock) };
         Ok(())
@@ -269,7 +272,7 @@ impl Mutex for SpinMutex {
 impl QueuedMutex for QueuedSpinMutex {
     type Target = Self;
 
-    fn init(&mut self) -> Result<(), NtError> {
+    fn init(&mut self) -> Result<()> {
         unsafe { KeInitializeSpinLock(self.0.get_mut()) }
         Ok(())
     }
@@ -351,7 +354,7 @@ where
 }
 
 impl<T, M: Mutex> Locked<T, M> {
-    pub fn new(data: T) -> Result<Self, NtError> {
+    pub fn new(data: T) -> Result<Self> {
         let layout = ex_allocate_pool_zero(
             NonPagedPoolNx,
             mem::size_of::<InnerData<T, M>>() as _,
@@ -394,7 +397,7 @@ impl<T, M: Mutex> Locked<T, M> {
         unsafe { self.inner.as_mut().data = value }
     }
 
-    pub fn get_cloned(&self) -> Result<T, NtError>
+    pub fn get_cloned(&self) -> Result<T>
     where
         T: Clone,
     {
@@ -405,7 +408,7 @@ impl<T, M: Mutex> Locked<T, M> {
     ///
     /// the caller can gain a mutable or immutable ref to `T` through `MutexGuard`</br>
     /// the `MutexGuard` implement both `Deref` and `DerefMut` to ensure this
-    pub fn lock(&self) -> Result<MutexGuard<'_, true, T, M>, NtError> {
+    pub fn lock(&self) -> Result<MutexGuard<'_, true, T, M>> {
         if !M::irql_ok() {
             Err(NtError::from(STATUS_UNSUCCESSFUL))
         } else {
@@ -421,7 +424,7 @@ impl<T, M: Mutex> Locked<T, M> {
     ///
     /// maybe we need a some type like `SharedMutexGuard` that only implements `Deref`?
     /// but i think using compile-time constant here is a good choice
-    pub fn lock_shared(&self) -> Result<MutexGuard<'_, false, T, M>, NtError> {
+    pub fn lock_shared(&self) -> Result<MutexGuard<'_, false, T, M>> {
         if !M::irql_ok() {
             Err(NtError::from(STATUS_UNSUCCESSFUL))
         } else {
@@ -456,7 +459,12 @@ where
         }
 
         unsafe {
-            let _ = layout.as_mut().unwrap().mutex.init().inspect_err(|_| panic!("Mutex failed to initialize"));
+            let _ = layout
+                .as_mut()
+                .unwrap()
+                .mutex
+                .init()
+                .inspect_err(|_| panic!("Mutex failed to initialize"));
             layout.as_mut().unwrap().data = Default::default();
         };
 
@@ -561,7 +569,7 @@ pub struct QueuedEmptyMutex;
 impl QueuedMutex for QueuedEmptyMutex {
     type Target = Self;
 
-    fn init(&mut self) -> Result<(), NtError> {
+    fn init(&mut self) -> Result<()> {
         Ok(())
     }
 
@@ -601,7 +609,7 @@ pub struct StackQueueLocked<T, M: QueuedMutex> {
 }
 
 impl<T, M: QueuedMutex> StackQueueLocked<T, M> {
-    pub fn new(data: T) -> Result<Self, NtError> {
+    pub fn new(data: T) -> Result<Self> {
         let layout = ex_allocate_pool_zero(
             NonPagedPoolNx,
             mem::size_of::<QueuedInnerData<T, M>>() as _,
@@ -631,7 +639,7 @@ impl<T, M: QueuedMutex> StackQueueLocked<T, M> {
         unsafe { self.inner.as_mut().data = value };
     }
 
-    pub fn get_cloned(&self) -> Result<T, NtError>
+    pub fn get_cloned(&self) -> Result<T>
     where
         T: Clone,
     {
@@ -643,7 +651,7 @@ impl<T, M: QueuedMutex> StackQueueLocked<T, M> {
     pub fn lock<'a>(
         &'a self,
         handle: &'a mut LockedQuueHandle,
-    ) -> Result<InStackMutexGuard<'a, T, M>, NtError> {
+    ) -> Result<InStackMutexGuard<'a, T, M>> {
         if !M::irql_ok() {
             Err(NtError::from(STATUS_UNSUCCESSFUL))
         } else {
@@ -674,7 +682,12 @@ where
         }
 
         unsafe {
-            let _ = layout.as_mut().unwrap().mutex.init().inspect_err(|_| panic!("Mutex failed to initialize"));
+            let _ = layout
+                .as_mut()
+                .unwrap()
+                .mutex
+                .init()
+                .inspect_err(|_| panic!("Mutex failed to initialize"));
             layout.as_mut().unwrap().data = Default::default();
         };
 

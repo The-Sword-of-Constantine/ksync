@@ -35,10 +35,10 @@ impl core::fmt::Display for NtError {
     }
 }
 
-pub type Result = core::result::Result<(), NtError>;
+pub type Result<T> = core::result::Result<T, NtError>;
 
 /// convert a NTSTATUS to a Result
-pub fn cvt(status: NTSTATUS) -> Result {
+pub fn cvt(status: NTSTATUS) -> Result<()> {
     match status {
         STATUS_SUCCESS => Ok(()),
         _ => Err(status.into()),

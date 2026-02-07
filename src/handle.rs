@@ -1,4 +1,7 @@
-use core::{ops::{Deref, DerefMut}, ptr::{self, NonNull}};
+use core::{
+    ops::{Deref, DerefMut},
+    ptr::{self, NonNull},
+};
 
 use wdk_sys::{
     _MODE::KernelMode,
@@ -10,7 +13,7 @@ use wdk_sys::{
 use crate::raw::AsRawObject;
 use crate::{
     kobject::KernelObject,
-    ntstatus::{NtError, cvt},
+    ntstatus::{Result, cvt},
     raw::AsRawHandle,
 };
 
@@ -45,21 +48,21 @@ impl ObjectHandle {
 
 /// convert from an owned `KernelObject`
 pub trait FromOwnedObject<T> {
-    fn from_kobject(object: &KernelObject<T>) -> Result<ObjectHandle, NtError>;
+    fn from_kobject(object: &KernelObject<T>) -> Result<ObjectHandle>;
 }
 
 // convert from a raw PEPROCESS and take ownership of its handle
 pub trait FromRawProcess {
-    fn from_process(process: PEPROCESS, access: ULONG) -> Result<ObjectHandle, NtError>;
+    fn from_process(process: PEPROCESS, access: ULONG) -> Result<ObjectHandle>;
 }
 
 // convert from a raw PETHREAD and take ownership of its handle
 pub trait FromRawThread {
-    fn from_thread(thread: PETHREAD, access: ULONG) -> Result<ObjectHandle, NtError>;
+    fn from_thread(thread: PETHREAD, access: ULONG) -> Result<ObjectHandle>;
 }
 
 impl FromRawProcess for ObjectHandle {
-    fn from_process(process: PEPROCESS, access: ULONG) -> Result<ObjectHandle, NtError> {
+    fn from_process(process: PEPROCESS, access: ULONG) -> Result<ObjectHandle> {
         let mut handle: HANDLE = ptr::null_mut();
         unsafe {
             cvt(ObOpenObjectByPointer(
@@ -77,7 +80,7 @@ impl FromRawProcess for ObjectHandle {
 }
 
 impl FromRawThread for ObjectHandle {
-    fn from_thread(thread: PETHREAD, access: ULONG) -> Result<ObjectHandle, NtError> {
+    fn from_thread(thread: PETHREAD, access: ULONG) -> Result<ObjectHandle> {
         let mut handle: HANDLE = ptr::null_mut();
 
         unsafe {
@@ -104,7 +107,7 @@ impl AsRawHandle for ObjectHandle {
 // FIXME: convert from a undocumented kernel object type is dangerous !!
 // we need sepcializations here
 impl<T> FromOwnedObject<T> for ObjectHandle {
-    fn from_kobject(object: &KernelObject<T>) -> Result<ObjectHandle, NtError> {
+    fn from_kobject(object: &KernelObject<T>) -> Result<ObjectHandle> {
         let mut handle: HANDLE = ptr::null_mut();
 
         cvt(unsafe {
@@ -136,7 +139,7 @@ impl Drop for ObjectHandle {
 }
 
 /// A generic owned handle that close the underlying `HANDLE` using `CloseHandle`
-/// 
+///
 /// useful for these customized handle types that implement `AsRawHandle` and `CloseHandle`
 #[repr(transparent)]
 pub struct OwnedHandle<T: CloseHandle>(T);

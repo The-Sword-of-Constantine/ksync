@@ -4,15 +4,14 @@ use wdk_sys::{
     _KSEMAPHORE,
     _POOL_TYPE::NonPagedPoolNx,
     PRKSEMAPHORE, STATUS_INSUFFICIENT_RESOURCES,
-    ntddk::{
-        ExFreePoolWithTag, KeInitializeSemaphore, KeReadStateSemaphore, KeReleaseSemaphore,
-    },
+    ntddk::{ExFreePoolWithTag, KeInitializeSemaphore, KeReadStateSemaphore, KeReleaseSemaphore},
 };
 
 use crate::{
     kobject::{Dispatchable, WaitResult},
-    ntstatus::NtError,
-    raw::AsRawObject, utils::ex_allocate_pool_zero,
+    ntstatus::{NtError, Result},
+    raw::AsRawObject,
+    utils::ex_allocate_pool_zero,
 };
 
 const SEMA_TAG: u32 = u32::from_ne_bytes(*b"ames");
@@ -31,7 +30,7 @@ impl Semaphore {
     /// This value must be positive. It determines how many waiting threads become eligible for execution when the semaphore is
     /// set to the signaled state and can therefore access the resource that the semaphore protects.
     /// it is normaly be set to `thread::available_parallelism`
-    pub fn new(count: i32, limit: i32) -> Result<Self, NtError> {
+    pub fn new(count: i32, limit: i32) -> Result<Self> {
         let layout =
             ex_allocate_pool_zero(NonPagedPoolNx, mem::size_of::<_KSEMAPHORE>() as _, SEMA_TAG);
 

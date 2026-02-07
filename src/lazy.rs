@@ -5,7 +5,7 @@
 //! while `LazyCell` and `LazyLock` can not
 //!
 //! they are all implemented with an associate `drop` method can be used to drop only once
-//! 
+//!
 //! - `OnceCell`</br>
 //! delayed initiazation out of construction
 //! can be initialized only once in single thread</br>

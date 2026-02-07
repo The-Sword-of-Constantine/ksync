@@ -100,7 +100,7 @@ pub struct OnceGuard<'a, T> {
 
 impl<'a, T> OnceGuard<'a, T> {
     /// take the inner `data` out
-    /// 
+    ///
     /// # Safety
     /// since data is wrapped in a `ManuallyDrop`, it can be safely transfer out of scope without double-free problems
     pub fn take(&mut self) -> T {
