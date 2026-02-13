@@ -594,7 +594,7 @@ impl<T> OnceLock<T> {
     /// take the ownership of inside value
     ///
     /// # Safety
-    /// - the user must not use it again after calling `take`
+    /// - the user must not use it again after called `take`
     /// - use this object again after `take` can cause undefined behavior
     #[inline]
     pub fn take(&mut self) -> Option<T> {

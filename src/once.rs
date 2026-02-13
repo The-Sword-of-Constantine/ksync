@@ -60,7 +60,7 @@ impl<T> Once<T> {
     /// call the `init_once` only once
     ///
     /// return a `OnceGuard` temporarily hold the value of `T` if the `init_once` is successfully executed
-    pub fn call_once<F: FnOnce() -> T>(&self, init_once: F) -> Option<OnceGuard<T>> {
+    pub fn call_once<F: FnOnce() -> T>(&'_ self, init_once: F) -> Option<OnceGuard<'_, T>> {
         if let Ok(_) =
             self.state
                 .compare_exchange(INITIAL, INPROGRESS, Ordering::SeqCst, Ordering::Relaxed)
@@ -79,9 +79,7 @@ impl<T> Once<T> {
         use core::arch::x86_64::_mm_pause;
 
         while self.get_state() != CallState::Completed {
-            unsafe {
-                _mm_pause();
-            }
+            _mm_pause();
         }
     }
 }
