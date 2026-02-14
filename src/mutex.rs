@@ -43,7 +43,7 @@ const MUTEX_TAG: ULONG = u32::from_ne_bytes(*b"xetm");
 pub trait Mutex {
     type Target: Mutex;
 
-    fn init(&mut self) -> Result<()>;
+    fn init(&self) -> Result<()>;
 
     fn shareable() -> bool {
         false
@@ -105,7 +105,7 @@ pub struct SpinMutex(UnsafeCell<SpinLockInner>);
 impl Mutex for EmptyMutex {
     type Target = Self;
 
-    fn init(&mut self) -> Result<()> {
+    fn init(&self) -> Result<()> {
         Ok(())
     }
 
@@ -117,7 +117,7 @@ impl Mutex for EmptyMutex {
 impl Mutex for FastMutex {
     type Target = Self;
 
-    fn init(&mut self) -> Result<()> {
+    fn init(&self) -> Result<()> {
         ExInitializeFastMutex(self.0.get());
         Ok(())
     }
@@ -140,7 +140,7 @@ impl Mutex for FastMutex {
 impl Mutex for GuardedMutex {
     type Target = Self;
 
-    fn init(&mut self) -> Result<()> {
+    fn init(&self) -> Result<()> {
         unsafe { KeInitializeGuardedMutex(self.0.get()) };
         Ok(())
     }
@@ -163,7 +163,7 @@ impl Mutex for GuardedMutex {
 impl Mutex for ResourceMutex {
     type Target = Self;
 
-    fn init(&mut self) -> Result<()> {
+    fn init(&self) -> Result<()> {
         cvt(unsafe { ExInitializeResourceLite(self.0.get()) })
     }
 
@@ -218,9 +218,12 @@ struct SpinLockInner {
 impl Mutex for SpinMutex {
     type Target = Self;
 
-    fn init(&mut self) -> Result<()> {
-        self.0.get_mut().irql = 0;
-        unsafe { KeInitializeSpinLock(&mut self.0.get_mut().lock) };
+    fn init(&self) -> Result<()> {
+        unsafe {
+            (*self.0.get()).irql = 0;
+            KeInitializeSpinLock(&mut (*self.0.get()).lock);
+        }
+
         Ok(())
     }
 
@@ -366,7 +369,9 @@ impl<T, M: Mutex> Locked<T, M> {
         }
 
         // initialize underlying mutex
-        unsafe { layout.as_mut().unwrap().mutex.init() }?;
+        unsafe { (&(*layout).mutex).init()? };
+
+        // unsafe { layout.as_mut().unwrap().mutex.init() }?;
 
         unsafe {
             // Rust does not actually "move" the `InnerData` into the memory location where the raw pointer `layout` points to
@@ -573,12 +578,10 @@ impl QueuedMutex for QueuedEmptyMutex {
         Ok(())
     }
 
-    fn lock(&self, handle: PKLOCK_QUEUE_HANDLE) {
-        let _ = handle;
+    fn lock(&self, _handle: PKLOCK_QUEUE_HANDLE) {
     }
 
-    fn unlock(&self, handle: PKLOCK_QUEUE_HANDLE) {
-        let _ = handle;
+    fn unlock(&self, _handle: PKLOCK_QUEUE_HANDLE) {
     }
 }
 
